@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pluggable type="plugin">
+	<name>ReCAPTCHA</name>
+	<guid>C3C4238C-7A16-11E0-87EC-5D844824019B</guid>
+	<license url="http://www.apache.org/licenses/LICENSE-2.0.html">Apache Software License 2.0</license>
+	<url>http://rayofsolaris.net/code/recaptcha-for-habari</url>
+	<author url="http://rayofsolaris.net/">Samir Shah</author>
+	<version>0.1</version>
+	<description><![CDATA[A plugin that adds a <a href="http://code.google.com/apis/recaptcha" target="_blank">reCAPTCHA</a> to comment forms for users that are not logged in and do not have a previously approved comment.]]></description>
+	<copyright>2011</copyright>
+</pluggable>
+
