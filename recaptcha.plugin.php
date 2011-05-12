@@ -7,6 +7,11 @@ class Recaptcha extends Plugin {
 	private $ready = false;
 	private $options;
 	
+	/*
+	 * Configuration settings to appear on the plugin page.
+	 * 
+	 * @return object FormUI object
+	 */
 	public function configure() {
 		$ui = new FormUI( 'recaptcha_configuration' );
 		$ui->append( 'static', 'recaptcha_info', '<p>In order to use reCAPTCHA you need to supply a key pair. You can <a href="http://code.google.com/apis/recaptcha/" target="_blank">get one for free</a>. Please enter your public and private keys below:</p>' );
@@ -19,17 +24,28 @@ class Recaptcha extends Plugin {
 		$private->add_validator( 'Recaptcha::check_keys' );
 		$private->size = $private->maxlength = 40;
 		
+		$theme = $ui->append( 'select', 'recaptcha_theme', 'recaptcha__theme', 'reCAPTCHA theme <small>(<a href="http://code.google.com/apis/recaptcha/docs/customization.html" target="_blank">view samples</a>)</small>:', array( 'red' => 'Red (default)', 'white' => 'White', 'blackglass' => 'Blackglass', 'clean' => 'Clean' ) );
+		
 		$ui->append( 'submit', 'save', 'Save' );
 		
 		return $ui;
 	}
 	
+	/*
+	 * Do a basic sanity check on API keys
+	 * 
+	 * @return array Empty if the key passed, otherwise containing an error string
+	 */
 	static function check_keys( $text, $control, $form ) {
 		$text = trim( $text );
 		return ( strlen( $text ) == 40 ) ? array() : array( 'The key you supplied does not appear to be valid. Please check that it is exactly 40 characters long and contains no spaces.' );
 	}
 	
 	
+	/*
+	 * Runs when a comment is submitted. Decides whether a CAPTCHA is required
+	 * and displays on if it is.
+	 */
 	function action_form_comment( $form ) {
 		$user = User::identify();
 		
@@ -53,13 +69,21 @@ class Recaptcha extends Plugin {
 		}
 
 		// show CAPTCHA and add validation
-		$html = '<script src="http://www.google.com/recaptcha/api/challenge?k=' . $this->options['public_key'] .'"></script><noscript><iframe id="recaptcha-no-js" src="http://www.google.com/recaptcha/api/noscript?k=' . $this->options['public_key'] .'" height="300" width="700" frameborder="0"></iframe><br><textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea>
+		$html = '';
+		if( $this->options['theme'] != 'red' )
+			$html .=  '<script type="text/javascript"> var RecaptchaOptions = {theme : "' . $this->options['theme'] . '"};</script>';
+		$html .= '<script src="http://www.google.com/recaptcha/api/challenge?k=' . $this->options['public_key'] .'"></script><noscript><iframe id="recaptcha-no-js" src="http://www.google.com/recaptcha/api/noscript?k=' . $this->options['public_key'] .'" height="300" width="700" frameborder="0"></iframe><br><textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea>
        <input type="hidden" name="recaptcha_response_field" value="manual_challenge"></noscript>';
 		$recaptcha = $form->insert( 'cf_submit', 'static', 'recaptcha',  $html );
-		$recaptcha->add_validator( 'Recaptcha::validate' );
+		$recaptcha->add_validator( array( $this, 'validate' ) );
 	}
 	
-	static function validate( $text, $control, $form ) {	// note, $text will be null
+	/*
+	 * Validate the CAPTCHA
+	 * 
+	 * @return array Empty if the CAPTCHA was passed, otherwise containing an error string
+	 */
+	function validate( $text, $control, $form ) {	// note, $text will be null
 		$chall = isset( $_POST['recaptcha_challenge_field'] ) ? $_POST['recaptcha_challenge_field'] : false;
 		$resp = isset( $_POST['recaptcha_response_field'] ) ? $_POST['recaptcha_response_field'] : false;
 		
@@ -72,6 +96,11 @@ class Recaptcha extends Plugin {
 		return ( trim($result[0]) == 'true' ) ? array() : array( 'You did not complete the reCAPTCHA correctly (' . $result[1] . ')' );
 	}
 	
+	/*
+	 * Helper function to send a verification request to teh reCAPTCHA servers
+	 * 
+	 * @return array
+	 */
 	static function recaptcha_post($data) {
 		$req = http_build_query($data);
 		$host = 'www.google.com';
@@ -98,10 +127,24 @@ class Recaptcha extends Plugin {
 		return explode("\n", $parts[1]);					// [0] 'true' or 'false', [1] = error message
 	}
 	
-	function action_plugin_deactivation() {
-		Options::delete_group( 'recaptcha' );
+	function action_plugin_activation( $file ) {
+		if ( Plugins::id_from_file($file) == Plugins::id_from_file( __FILE__ ) ) {
+			Options::set_group( 'recaptcha', array( 'public_key' => '', 'private_key' => '', 'theme' => 'red' ) );
+		}
 	}
 	
+	function action_plugin_deactivation( $file ) {
+		if ( Plugins::id_from_file($file) == Plugins::id_from_file( __FILE__ ) ) {
+			Options::delete_group( 'recaptcha' );
+		}
+	}
+	
+	/*
+	 * Display a notice in the admin screen if the plugin is installed but
+	 * API keys need to be supplied
+	 * 
+	 * @return array Empty if the key passed, otherwise containing an error string
+	 */
 	function action_admin_info() {
 		$this->load_options();
 		if( !$this->ready )
