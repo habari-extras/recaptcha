@@ -24,7 +24,7 @@ class Recaptcha extends Plugin {
 		$private->add_validator( 'Recaptcha::check_keys' );
 		$private->size = $private->maxlength = 40;
 		
-		$theme = $ui->append( 'select', 'recaptcha_theme', 'recaptcha__theme', 'reCAPTCHA theme <small>(<a href="http://code.google.com/apis/recaptcha/docs/customization.html" target="_blank">view samples</a>)</small>:', array( 'red' => 'Red (default)', 'white' => 'White', 'blackglass' => 'Blackglass', 'clean' => 'Clean' ) );
+		$theme = $ui->append( 'select', 'recaptcha_theme', 'recaptcha__theme', 'reCAPTCHA theme <small>(<a href="http://code.google.com/apis/recaptcha/docs/customization.html" target="_blank">view samples</a>)</small>:', array( 'red' => 'Red (default)', 'white' => 'White', 'blackglass' => 'Blackglass', 'clean' => 'Clean', 'custom' => 'Custom (requries theme support)' ) );
 		
 		$ui->append( 'submit', 'save', 'Save' );
 		
@@ -70,10 +70,18 @@ class Recaptcha extends Plugin {
 
 		// show CAPTCHA and add validation
 		$html = '';
-		if( $this->options['theme'] != 'red' )
-			$html .=  '<script type="text/javascript"> var RecaptchaOptions = {theme : "' . $this->options['theme'] . '"};</script>';
-		$html .= '<script src="http://www.google.com/recaptcha/api/challenge?k=' . $this->options['public_key'] .'"></script><noscript><iframe id="recaptcha-no-js" src="http://www.google.com/recaptcha/api/noscript?k=' . $this->options['public_key'] .'" height="300" width="700" frameborder="0"></iframe><br><textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea>
-       <input type="hidden" name="recaptcha_response_field" value="manual_challenge"></noscript>';
+        if( $this->options['theme'] == 'custom' ) {
+			$html .= '<script type="text/javascript">var RecaptchaOptions={theme:"custom",custom_theme_widget:"recaptcha_widget"};</script>';
+            $theme = $form->get_theme( );
+            $theme->recaptcha_theme = $this->options['theme'];
+            $theme->recaptcha_public_key = $this->options['public_key'];
+            $theme->control = $this;
+            $html .= $theme->fetch( 'formcontrol_recaptcha', true );
+		} else if( $this->options['theme'] != 'red' ) {
+		    $html .= '<script type="text/javascript">var RecaptchaOptions={theme:"' . $this->options['theme'] . '"};</script>';
+		}
+		$html .= '<script src="http://www.google.com/recaptcha/api/challenge?k=' . $this->options['public_key'] .'"></script>';
+        $html .= '<noscript><iframe id="recaptcha-no-js" src="http://www.google.com/recaptcha/api/noscript?k=' . $this->options['public_key'] .'" height="300" width="700" frameborder="0"></iframe><br><textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea><input type="hidden" name="recaptcha_response_field" value="manual_challenge"></noscript>';
 		$recaptcha = $form->insert( 'cf_submit', 'static', 'recaptcha',  $html );
 		$recaptcha->add_validator( array( $this, 'validate' ) );
 	}
