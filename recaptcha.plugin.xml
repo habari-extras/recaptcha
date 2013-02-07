@@ -5,7 +5,7 @@
 	<license url="http://www.apache.org/licenses/LICENSE-2.0.html">Apache Software License 2.0</license>
 	<url>http://rayofsolaris.net/code/recaptcha-for-habari</url>
 	<author url="http://rayofsolaris.net/">Samir Shah</author>
-	<version>1.0</version>
+	<version>1.1</version>
 	<description><![CDATA[A plugin that adds a <a href="http://code.google.com/apis/recaptcha" target="_blank">reCAPTCHA</a> to comment forms for users that are not logged in and do not have a previously approved comment.]]></description>
 	<copyright>2011</copyright>
 </pluggable>
