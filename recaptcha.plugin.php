@@ -55,35 +55,52 @@ class Recaptcha extends Plugin {
 		$this->load_options();
 		if( !$this->ready )
 			return;
-		
-		$cookie = 'comment_' . Options::get( 'GUID' );
-		if ( isset( $_COOKIE[$cookie] ) ) {
-			$commenter = explode( '#', $_COOKIE[$cookie], 3 );	// name, email, url
-			// make sure there are always at least 3 elements
-			$commenter = array_pad( $commenter, 3, null );
-		
-			$comments = (int) Comments::get( array( 'count' => 'name', 'name' => $commenter[0], 'email' => $commenter[1], 'status' => Comment::STATUS_APPROVED ) );
-			
-			if( $comments )	// previously approved comments
-				return;
-		}
 
-		// show CAPTCHA and add validation
-		$html = '';
-        if( $this->options['theme'] == 'custom' ) {
-			$html .= '<script type="text/javascript">var RecaptchaOptions={theme:"custom",custom_theme_widget:"recaptcha_widget"};</script>';
-            $theme = $form->get_theme( );
-            $theme->recaptcha_theme = $this->options['theme'];
-            $theme->recaptcha_public_key = $this->options['public_key'];
-            $theme->control = $this;
-            $html .= $theme->fetch( 'formcontrol_recaptcha', true );
-		} else if( $this->options['theme'] != 'red' ) {
-		    $html .= '<script type="text/javascript">var RecaptchaOptions={theme:"' . $this->options['theme'] . '"};</script>';
+		// If the commenter has been approved as valid before, don't show the captcha
+		if(isset($_SESSION['recaptcha_commenter_validated']) && $_SESSION['recaptcha_commenter_validated'] == true) {
+			$form->insert( 'cf_submit', 'static', 'recaptcha', '' );
 		}
-		$html .= '<script src="http://www.google.com/recaptcha/api/challenge?k=' . $this->options['public_key'] .'"></script>';
-        $html .= '<noscript><iframe id="recaptcha-no-js" src="http://www.google.com/recaptcha/api/noscript?k=' . $this->options['public_key'] .'" height="300" width="700" frameborder="0"></iframe><br><textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea><input type="hidden" name="recaptcha_response_field" value="manual_challenge"></noscript>';
-		$recaptcha = $form->insert( 'cf_submit', 'static', 'recaptcha',  $html );
-		$recaptcha->add_validator( array( $this, 'validate' ) );
+		// If the commenter has been checked and not approved, show the captcha and add validation
+		else if(isset($_SESSION['recaptcha_commenter_validated'])) {
+			$html = '';
+			if( $this->options['theme'] == 'custom' ) {
+				$html .= '<script type="text/javascript">var RecaptchaOptions={theme:"custom",custom_theme_widget:"recaptcha_widget"};</script>';
+				$theme = $form->get_theme( );
+				$theme->recaptcha_theme = $this->options['theme'];
+				$theme->recaptcha_public_key = $this->options['public_key'];
+				$theme->control = $this;
+				$html .= $theme->fetch( 'formcontrol_recaptcha', true );
+			} else if( $this->options['theme'] != 'red' ) {
+				$html .= '<script type="text/javascript">var RecaptchaOptions={theme:"' . $this->options['theme'] . '"};</script>';
+			}
+			$html .= '<script src="http://www.google.com/recaptcha/api/challenge?k=' . $this->options['public_key'] .'"></script>';
+			$html .= '<noscript><iframe id="recaptcha-no-js" src="http://www.google.com/recaptcha/api/noscript?k=' . $this->options['public_key'] .'" height="300" width="700" frameborder="0"></iframe><br><textarea name="recaptcha_challenge_field" rows="3" cols="40"></textarea><input type="hidden" name="recaptcha_response_field" value="manual_challenge"></noscript>';
+			
+			$recaptcha = $form->insert( 'cf_submit', 'static', 'recaptcha', $html );
+			$recaptcha->add_validator( array( $this, 'validate' ) );
+		}
+		// If the commenter has not yet been checked, don't show the captcha, but add validation for the commenter
+		else {
+			$form->cf_commenter->add_validator(array($this, 'validate_commenter'));
+			$form->insert( 'cf_submit', 'static', 'recaptcha', '' );
+		}
+	}
+	
+	/*
+	 * Checks if the commenter has been approved before with this name-mail-url-combination.
+	 */
+	function validate_commenter($value, $control, $form)
+	{
+		if(Comments::get( array( 'email' => $form->cf_email, 'name' => $value, 'url' => $form->cf_url, 'status' => Comment::STATUS_APPROVED ) )->count)
+		{
+			$_SESSION['recaptcha_commenter_validated'] = true;
+			return array();
+		}
+		else
+		{
+			$_SESSION['recaptcha_commenter_validated'] = false;
+			return array( _t("You have not been approved before and have to enter a Captcha. If you commented before, you will not have to enter a Captcha if you use the same combination of name, mail and URL.", __CLASS__) );
+		}
 	}
 	
 	/*
